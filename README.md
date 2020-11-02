@@ -5,19 +5,21 @@ Publish the com pose of a robot wrt its world
         
 published topic
 ---------------
-com_position geometry_msgs::Point
+__com_position__ geometry_msgs::Point
         
 subscribed topic
 ----------------
-joint_states sensor_msgs::JointState
+__joint_states__ sensor_msgs::JointState
         
 global params
 -------------
-robot_description
-robot_description_semantic
+__robot_description__ string
+
+__robot_description_semantic__ string
         
 local params
 ------------  
-rate
-is_floating_base
+__rate__ int
+
+__is_floating_base__ bool
 
