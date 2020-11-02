@@ -1,0 +1,87 @@
+#! /usr/bin/python
+
+import rospy
+from geometry_msgs.msg import Point
+from sensor_msgs.msg import JointState
+
+from xbot_interface import xbot_interface as xbot
+from xbot_interface import config_options as co
+
+model = None
+com_position = Point()
+pub = rospy.Publisher('com_position', Point, queue_size=10)
+
+
+def callback(data):
+    global model
+    global com_position
+    global pub
+
+    names = model.getEnabledJointNames()
+    q = [None] * len(names)
+    for i in range(len(names)):
+        joint_name = data.name[i]
+        q[names.index(joint_name)] = data.position[i]
+
+    model.setJointPosition(q)
+    model.update()
+
+    com = model.getCOM()
+    com_position.x = com[0]
+    com_position.y = com[1]
+    com_position.z = com[2]
+    #print "com position: [", com_position.x, ", ", com_position.y, ", ", com_position.z, "]"
+
+    pub.publish(com_position)
+
+
+def com_publisher():
+    """
+    com_publisher publish the com pose of a robot wrt its world
+        published topic: 'com_position' geometry_msgs::Point
+        subscribed topic: 'joint_states' sensor_msgs::JointState
+        global params: 'robot_description'
+                       'robot_description_semantic'
+        local params:  'rate'
+                       'is_floating_base'
+
+    """
+
+    global model
+
+    rospy.init_node('com_publisher', anonymous=True)
+
+    # Retrieve global params
+    urdf = rospy.get_param('robot_description')
+    srdf = rospy.get_param('robot_description_semantic')
+
+    # Retrieve local params
+    hz = rospy.get_param('~rate', 100)
+    rate = rospy.Rate(hz)  # 100hz
+    print "Rate @", hz, " [hz]"
+
+    is_floating_base = rospy.get_param('is_floating_base', False)
+    print "is_floating_base: ", is_floating_base
+
+    # Create model
+    opt = co.ConfigOptions()
+    opt.set_urdf(urdf)
+    opt.set_srdf(srdf)
+    opt.generate_jidmap()
+    opt.set_bool_parameter('is_model_floating_base', is_floating_base)
+    opt.set_string_parameter('model_type', 'RBDL')
+    model = xbot.ModelInterface(opt)
+
+
+    # Update model
+    rospy.Subscriber("joint_states", JointState, callback)
+
+    while not rospy.is_shutdown():
+        rate.sleep()
+
+if __name__ == '__main__':
+    try:
+        com_publisher()
+    except rospy.ROSInterruptException:
+        pass
+
